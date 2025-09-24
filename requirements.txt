@@ -3,3 +3,6 @@ azure-identity
 azure-mgmt-compute
 azure-mgmt-resource
 azure-mgmt-monitor
+google-genai
+python-dotenv
+requests

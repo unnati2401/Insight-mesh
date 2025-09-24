@@ -1,3 +1,5 @@
 flask
 azure-identity
 azure-mgmt-compute
+azure-mgmt-resource
+azure-mgmt-monitor

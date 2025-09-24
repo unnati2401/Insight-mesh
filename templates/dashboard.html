@@ -218,13 +218,21 @@
       <option value="GCP" {% if csp == "GCP" %}selected{% endif %}>GCP</option>
     </select>
 
-    <input
-      type="text"
-      id="subscription"
-      name="subscription"
-      placeholder="Subscription/Project"
-      value="{{ subscription }}"
-    />
+    <select id="subscription" name="subscription" style="padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; background-color: white; color: #333; font-size: 16px; vertical-align: middle;">
+        <option value="">Select Subscription/Project</option>
+    </select>
+
+    <div id="resourceGroupContainer" style="display: none; display: inline-block; margin-right: 15px; vertical-align: middle;">
+        <label for="resourceGroup">Resource Group:</label>
+        <select id="resourceGroup" name="resource_group" style="padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; background-color: white; color: #333; font-size: 16px;">
+            <option value="all">All Resource Groups</option>
+        </select>
+    </div>
+
+    <label for="vmFilter">Filter by VM:</label>
+    <select id="vmFilter" name="vmFilter">
+      <option value="all">All VMs</option>
+    </select>
 
     <button type="submit">Submit</button>
   </form>
@@ -239,6 +247,7 @@
         <th>VM ID</th>
         <th>Type</th>
         <th>Status</th>
+        <th>Cost</th>
         <th>Recommendation</th>
       </tr>
     </thead>
@@ -248,6 +257,7 @@
         <td>{{ rec.vm_id }}</td>
         <td>{{ rec.vm_type }}</td>
         <td>{{ rec.status }}</td>
+        <td>${{ "%.2f"|format(rec.cost) }}</td>
         <td>{{ rec.recommendation }}</td>
       </tr>
       {% endfor %}
@@ -255,20 +265,123 @@
   </table>
 
  <script>
+  const analysisData = {{ analysis | tojson | safe }};
+  const currentSubscription = "{{ subscription }}";
+  const currentResourceGroup = "{{ resource_group }}";
+
   // Get DOM elements
+  const cspSelect = document.getElementById('csp');
+  const subscriptionSelect = document.getElementById('subscription');
+  const resourceGroupContainer = document.getElementById('resourceGroupContainer');
+  const resourceGroupSelect = document.getElementById('resourceGroup');
   const toggle = document.getElementById('darkModeToggle');
   const darkModeLabel = document.getElementById('darkModeLabel');
+  const vmFilter = document.getElementById('vmFilter');
+
+  const dummySubscriptions = {
+    'AWS': ['123456789012', '987654321098'],
+    'GCP': ['gcp-prod-project', 'gcp-dev-project'],
+    'Azure': ['azure-sub-1', 'azure-sub-2']
+  };
+
+  const dummyResourceGroups = {
+      'azure-sub-1': ['rg-1a', 'rg-1b'],
+      'azure-sub-2': ['rg-2a', 'rg-2b']
+  };
+
+  function updateSubscriptionDropdown() {
+    const selectedCsp = cspSelect.value;
+    const subs = dummySubscriptions[selectedCsp] || [];
+    
+    subscriptionSelect.innerHTML = '<option value="">Select Subscription/Project</option>';
+    subs.forEach(sub => {
+      const option = document.createElement('option');
+      option.value = sub;
+      option.textContent = sub;
+      if (sub === currentSubscription) {
+        option.selected = true;
+      }
+      subscriptionSelect.appendChild(option);
+    });
+
+    if (selectedCsp === 'Azure') {
+        resourceGroupContainer.style.display = 'inline-block';
+        updateResourceGroupDropdown();
+    } else {
+        resourceGroupContainer.style.display = 'none';
+    }
+  }
+
+  function updateResourceGroupDropdown() {
+      const selectedSub = subscriptionSelect.value;
+      const rgs = dummyResourceGroups[selectedSub] || [];
+
+      resourceGroupSelect.innerHTML = '<option value="all">All Resource Groups</option>';
+      rgs.forEach(rg => {
+          const option = document.createElement('option');
+          option.value = rg;
+          option.textContent = rg;
+          if (rg === currentResourceGroup) {
+              option.selected = true;
+          }
+          resourceGroupSelect.appendChild(option);
+      });
+  }
+
+  function populateVMFilter() {
+    const vms = [...new Set(analysisData.map(item => item.vm_id))];
+    vms.forEach(vmId => {
+      const option = document.createElement('option');
+      option.value = vmId;
+      option.textContent = vmId;
+      vmFilter.appendChild(option);
+    });
+  }
 
   function setDarkMode(enabled) {
+    const vmFilterSelect = document.getElementById('vmFilter');
+    const subscriptionSelect = document.getElementById('subscription');
+    const resourceGroupSelect = document.getElementById('resourceGroup');
+
     if (enabled) {
       document.body.classList.add('dark-mode');
       toggle.classList.add('dark');
       darkModeLabel.style.color = '#eee';
+      if (vmFilterSelect) {
+        vmFilterSelect.style.backgroundColor = '#222';
+        vmFilterSelect.style.borderColor = '#555';
+        vmFilterSelect.style.color = '#eee';
+      }
+      if (subscriptionSelect) {
+        subscriptionSelect.style.backgroundColor = '#222';
+        subscriptionSelect.style.borderColor = '#555';
+        subscriptionSelect.style.color = '#eee';
+      }
+      if (resourceGroupSelect) {
+        resourceGroupSelect.style.backgroundColor = '#222';
+        resourceGroupSelect.style.borderColor = '#555';
+        resourceGroupSelect.style.color = '#eee';
+      }
       localStorage.setItem('darkMode', 'enabled');
     } else {
       document.body.classList.remove('dark-mode');
       toggle.classList.remove('dark');
       darkModeLabel.style.color = '#333';
+      if (vmFilterSelect) {
+        vmFilterSelect.style.backgroundColor = 'white';
+        vmFilterSelect.style.borderColor = '#ccc';
+        vmFilterSelect.style.color = '#333';
+      }
+       if (subscriptionSelect) {
+        subscriptionSelect.style.backgroundColor = 'white';
+        subscriptionSelect.style.borderColor = '#ccc';
+        subscriptionSelect.style.color = '#333';
+      }
+      if (resourceGroupSelect) {
+        resourceGroupSelect.style.backgroundColor = 'white';
+        resourceGroupSelect.style.borderColor = '#ccc';
+        resourceGroupSelect.style.color = '#333';
+      }
       localStorage.setItem('darkMode', 'disabled');
     }
     drawChart();
@@ -281,17 +394,30 @@
     setDarkMode(false);
   }
 
+  cspSelect.addEventListener('change', updateSubscriptionDropdown);
+  subscriptionSelect.addEventListener('change', updateResourceGroupDropdown);
+
   toggle.addEventListener('click', () => {
     const isDark = document.body.classList.contains('dark-mode');
     setDarkMode(!isDark);
   });
 
+  vmFilter.addEventListener('change', () => {
+    drawChart();
+  });
+
   // Chart.js graph drawing function
   function drawChart() {
-    const analysisData = {{ analysis | tojson or '[]' }};
-    const labels = analysisData.map(item => item.vm_id);
-    const cpuData = analysisData.map(item => item.cpu);
-    const memoryData = analysisData.map(item => item.memory);
+    const selectedVm = vmFilter.value;
+    let filteredData = analysisData;
+
+    if (selectedVm !== 'all') {
+      filteredData = analysisData.filter(item => item.vm_id === selectedVm);
+    }
+
+    const labels = filteredData.map(item => item.vm_id);
+    const cpuData = filteredData.map(item => item.cpu);
+    const memoryData = filteredData.map(item => item.memory);
 
     const darkModeOn = document.body.classList.contains('dark-mode');
 
@@ -301,12 +427,16 @@
         {
           label: 'CPU Usage (%)',
           data: cpuData,
-          backgroundColor: 'rgba(54, 162, 235, 0.6)'
+          backgroundColor: 'rgba(54, 162, 235, 0.7)',
+          borderColor: 'rgba(54, 162, 235, 1)',
+          borderWidth: 1
         },
         {
           label: 'Memory Usage (%)',
           data: memoryData,
-          backgroundColor: 'rgba(255, 99, 132, 0.6)'
+          backgroundColor: 'rgba(75, 192, 192, 0.7)',
+          borderColor: 'rgba(75, 192, 192, 1)',
+          borderWidth: 1
         }
       ]
     };
@@ -362,7 +492,9 @@
     window.myChart = new Chart(ctx, config);
   }
 
-  // Initial draw
+  // Initial setup
+  updateSubscriptionDropdown();
+  populateVMFilter();
   drawChart();
 </script>
 

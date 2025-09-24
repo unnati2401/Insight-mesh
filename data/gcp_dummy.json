@@ -1,0 +1,5 @@
+[
+  {"id": "gcp-vm1", "type": "n1-standard-1", "cpu_usage": 10, "memory_usage": 15, "cost": 10},
+  {"id": "gcp-vm2", "type": "n1-standard-2", "cpu_usage": 75, "memory_usage": 60, "cost": 20},
+  {"id": "gcp-vm3", "type": "n1-standard-4", "cpu_usage": 90, "memory_usage": 85, "cost": 40}
+]

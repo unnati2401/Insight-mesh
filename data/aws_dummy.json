@@ -1,0 +1,5 @@
+[
+  {"id": "aws-vm1", "type": "t2.micro", "cpu_usage": 15, "memory_usage": 25, "cost": 5},
+  {"id": "aws-vm2", "type": "t2.medium", "cpu_usage": 85, "memory_usage": 70, "cost": 15},
+  {"id": "aws-vm3", "type": "t2.large", "cpu_usage": 40, "memory_usage": 35, "cost": 25}
+]

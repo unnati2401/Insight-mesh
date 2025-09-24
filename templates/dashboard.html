@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VM Monitoring Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    /* Basic page styling */
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 900px;
+      margin: 30px auto;
+      padding: 0 15px;
+      background-color: #f9f9f9;
+      color: #333;
+      transition: background-color 0.3s, color 0.3s;
+      position: relative;
+    }
+
+    /* Dark mode styles */
+    body.dark-mode {
+      background-color: #121212;
+      color: #eee;
+    }
+
+    h2, h3 {
+      text-align: center;
+    }
+
+    /* Form layout */
+    form {
+      margin-bottom: 30px;
+      text-align: center;
+    }
+
+    form label,
+    form select,
+    form input,
+    form button {
+      display: inline-block;
+      margin-right: 15px;
+      margin-bottom: 10px;
+      font-size: 16px;
+      vertical-align: middle;
+    }
+
+    form input, form select {
+      padding: 6px 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background-color: white;
+      color: #333;
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    body.dark-mode form input,
+    body.dark-mode form select {
+      background-color: #222;
+      border-color: #555;
+      color: #eee;
+    }
+
+    form button {
+      padding: 6px 15px;
+      border: none;
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: background-color 0.3s ease;
+    }
+
+    form button:hover {
+      background-color: #0056b3;
+    }
+
+    /* Chart canvas styling */
+    #usageChart {
+      display: block;
+      max-width: 700px;
+      max-height: 400px;
+      margin: 0 auto 40px auto;
+      width: 100%;
+      height: 400px; /* fixed height */
+      background: white;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 10px;
+      box-sizing: border-box;
+      transition: background-color 0.3s, border-color 0.3s;
+    }
+
+    body.dark-mode #usageChart {
+      background: #222;
+      border-color: #444;
+    }
+
+    /* Table styling */
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 0 8px rgba(0,0,0,0.1);
+      transition: background-color 0.3s, color 0.3s;
+    }
+
+    body.dark-mode table {
+      background: #222;
+      box-shadow: 0 0 12px rgba(255,255,255,0.1);
+      color: #eee;
+    }
+
+    table th,
+    table td {
+      padding: 12px 15px;
+      text-align: left;
+      border-bottom: 1px solid #eee;
+      transition: border-color 0.3s;
+    }
+
+    body.dark-mode table th,
+    body.dark-mode table td {
+      border-bottom: 1px solid #444;
+    }
+
+    table th {
+      background-color: #007bff;
+      color: white;
+      font-weight: 600;
+    }
+
+    body.dark-mode table th {
+      background-color: #0056b3;
+    }
+
+    table tr:hover {
+      background-color: #f1f7ff;
+    }
+
+    body.dark-mode table tr:hover {
+      background-color: #333;
+    }
+
+    /* Dark mode toggle container */
+    #darkModeContainer {
+      position: fixed;
+      top: 10px;
+      right: 20px;
+      text-align: center;
+      user-select: none;
+      font-weight: 600;
+      color: #333;
+      transition: color 0.3s;
+      z-index: 1000;
+      font-family: Arial, sans-serif;
+    }
+
+    body.dark-mode #darkModeContainer {
+      color: #eee;
+    }
+
+    /* Dark mode toggle button */
+    #darkModeToggle {
+      margin-top: 5px;
+      width: 50px;
+      height: 28px;
+      background: #ddd;
+      border-radius: 14px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+      box-shadow: inset 0 0 5px rgba(0,0,0,0.2);
+      position: relative;
+    }
+
+    #darkModeToggle.dark {
+      background: #4b4b4b;
+    }
+
+    #darkModeToggle::before {
+      content: "";
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 22px;
+      height: 22px;
+      background: white;
+      border-radius: 50%;
+      transition: transform 0.3s ease;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    #darkModeToggle.dark::before {
+      transform: translateX(22px);
+      background: #222;
+      box-shadow: 0 2px 6px rgba(255,255,255,0.3);
+    }
+  </style>
+</head>
+<body>
+  <h2>VM Monitoring Dashboard</h2>
+
+  <!-- Dark mode toggle container with label -->
+  <div id="darkModeContainer">
+    <div id="darkModeLabel">Dark Mode</div>
+    <div id="darkModeToggle" title="Toggle Dark Mode"></div>
+  </div>
+
+  <form method="POST" action="">
+    <label for="csp">Select CSP:</label>
+    <select id="csp" name="csp">
+      <option value="AWS" {% if csp == "AWS" %}selected{% endif %}>AWS</option>
+      <option value="Azure" {% if csp == "Azure" %}selected{% endif %}>Azure</option>
+      <option value="GCP" {% if csp == "GCP" %}selected{% endif %}>GCP</option>
+    </select>
+
+    <input
+      type="text"
+      id="subscription"
+      name="subscription"
+      placeholder="Subscription/Project"
+      value="{{ subscription }}"
+    />
+
+    <button type="submit">Submit</button>
+  </form>
+
+  <h3>{{ csp }} VM Metrics</h3>
+  <canvas id="usageChart"></canvas>
+
+  <h3>Recommendations</h3>
+  <table>
+    <thead>
+      <tr>
+        <th>VM ID</th>
+        <th>Type</th>
+        <th>Status</th>
+        <th>Recommendation</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for rec in recommendations %}
+      <tr>
+        <td>{{ rec.vm_id }}</td>
+        <td>{{ rec.vm_type }}</td>
+        <td>{{ rec.status }}</td>
+        <td>{{ rec.recommendation }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+ <script>
+  // Get DOM elements
+  const toggle = document.getElementById('darkModeToggle');
+  const darkModeLabel = document.getElementById('darkModeLabel');
+
+  function setDarkMode(enabled) {
+    if (enabled) {
+      document.body.classList.add('dark-mode');
+      toggle.classList.add('dark');
+      darkModeLabel.style.color = '#eee';
+      localStorage.setItem('darkMode', 'enabled');
+    } else {
+      document.body.classList.remove('dark-mode');
+      toggle.classList.remove('dark');
+      darkModeLabel.style.color = '#333';
+      localStorage.setItem('darkMode', 'disabled');
+    }
+    drawChart();
+  }
+
+  // Load saved preference
+  if (localStorage.getItem('darkMode') === 'enabled') {
+    setDarkMode(true);
+  } else {
+    setDarkMode(false);
+  }
+
+  toggle.addEventListener('click', () => {
+    const isDark = document.body.classList.contains('dark-mode');
+    setDarkMode(!isDark);
+  });
+
+  // Chart.js graph drawing function
+  function drawChart() {
+    const analysisData = {{ analysis | tojson or '[]' }};
+    const labels = analysisData.map(item => item.vm_id);
+    const cpuData = analysisData.map(item => item.cpu);
+    const memoryData = analysisData.map(item => item.memory);
+
+    const darkModeOn = document.body.classList.contains('dark-mode');
+
+    const data = {
+      labels: labels,
+      datasets: [
+        {
+          label: 'CPU Usage (%)',
+          data: cpuData,
+          backgroundColor: 'rgba(54, 162, 235, 0.6)'
+        },
+        {
+          label: 'Memory Usage (%)',
+          data: memoryData,
+          backgroundColor: 'rgba(255, 99, 132, 0.6)'
+        }
+      ]
+    };
+
+    const config = {
+      type: 'bar',
+      data: data,
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            ticks: {
+              color: darkModeOn ? '#eee' : '#333',
+            },
+            grid: {
+              color: darkModeOn ? 'rgba(255, 255, 255, 0.1)' : '#eee',
+            }
+          },
+          y: {
+            beginAtZero: true,
+            max: 100,
+            ticks: {
+              color: darkModeOn ? '#eee' : '#333',
+            },
+            grid: {
+              color: darkModeOn ? 'rgba(255, 255, 255, 0.1)' : '#eee',
+            }
+          }
+        },
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: {
+              color: darkModeOn ? '#eee' : '#333',
+            }
+          },
+          tooltip: {
+            enabled: true,
+            backgroundColor: darkModeOn ? '#333' : '#fff',
+            titleColor: darkModeOn ? '#eee' : '#000',
+            bodyColor: darkModeOn ? '#eee' : '#000',
+          }
+        }
+      }
+    };
+
+    const ctx = document.getElementById('usageChart').getContext('2d');
+
+    if(window.myChart) {
+      window.myChart.destroy();
+    }
+    window.myChart = new Chart(ctx, config);
+  }
+
+  // Initial draw
+  drawChart();
+</script>
+
+</body>
+</html>
